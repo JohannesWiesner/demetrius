@@ -9,6 +9,9 @@ import os
 import shutil
 import re
 
+# General-To-Dos:
+# Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
+
 # define which directory should be examined
 examined_directory = "C:/Users/johwi/Desktop/test_src"
 
