@@ -9,19 +9,25 @@ import os
 import shutil
 import re
 
-# General-To-Dos:
-# Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
-# Separate Function to get parentfolder path from copying files (e.g. def get_parent_name())
-# Allow module to be executed via terminal
-# Put valid suffixes in external .json file (future plan: there could be also a list of 
-# 'famous' file suffixes and a list of all file suffixes. This would allow the user to decide
-# how exhaustively demetrius should search for files)
+# TO-DOS:
+# 1.) Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
+# 2.) There should be separate functions to get parentfolder path and to copy the files (e.g. def get_parent_name())
+# 4.) Allow module to be executed via terminal using flags
+# 5.) Put valid suffixes in external .json file (future plan: there could be also a list of 
+# 'popular' file suffixes and a list of all file suffixes. This would allow the user to decide
+# how exhaustively demetrius should search for files. A list of popular file extensions could be extracted from
+# https://www.file-extensions.org/filetype/extension/name/bitmap-image-files)
+
+# FIXMES:
+# 1.) Currently there is the issue, that sometimes files that are in the same directory can have the same name
+# in this case (which raises WinError, a file can't be copied if there's already a file with the same name). For this
+# the same logic as for the parent folder has to be applied (create new name for this file and add _idx to it)
 
 # define which directory should be examined
-examined_directory = "C:/Users/johwi/Desktop/test_src"
+examined_directory = "D:/backups/2012_03_backup_hannes"
 
 # define in which folder data should be copied (note that this string must end with a slash)
-destination_directory = "C:/Users/johwi/Desktop/test_dst/"
+destination_directory = "D:/gutenwiesner/mediafiles/2012_03_backup_hannes_mediafiles/"
 
 # define suffixes to search for 
 suffixes = (
