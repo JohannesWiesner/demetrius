@@ -11,6 +11,11 @@ import re
 
 # General-To-Dos:
 # Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
+# Separate Function to get parentfolder path from copying files (e.g. def get_parent_name())
+# Allow module to be executed via terminal
+# Put valid suffixes in external .json file (future plan: there could be also a list of 
+# 'famous' file suffixes and a list of all file suffixes. This would allow the user to decide
+# how exhaustively demetrius should search for files)
 
 # define which directory should be examined
 examined_directory = "C:/Users/johwi/Desktop/test_src"
@@ -164,7 +169,7 @@ def copy_media_files(filepathlist,dst_dir):
             print('Progress: ~ {} %'.format(progress),"\n")
 
         # case 2: current file is in same directory as file before (they belong to the same folder)
-        else:
+        elif current_dir == last_dir:
 
             # copy file
             shutil.copy2(filepath,last_dst)
