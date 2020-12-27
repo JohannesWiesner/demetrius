@@ -1,197 +1,246 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Nov  3 20:17:11 2020
+Find and copy files from a source directory to a destination directory while 
+preserving the original parent directories.
 
 @author: johwi
 """
 
+import json
 import os
-import shutil
 import re
+import shutil
 
-# TO-DOS:
-# 1.) Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
-# 2.) There should be separate functions to get parentfolder path and to copy the files (e.g. def get_parent_name())
-# 4.) Allow module to be executed via terminal using flags
-# 5.) Put valid suffixes in external .json file (future plan: there could be also a list of 
-# 'popular' file suffixes and a list of all file suffixes. This would allow the user to decide
-# how exhaustively demetrius should search for files. A list of popular file extensions could be extracted from
-# https://www.file-extensions.org/filetype/extension/name/bitmap-image-files)
+# TO-DO: Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
+# https://www.google.com/search?q=halo+spinning+cursor&rlz=1C1CHZN_deDE919DE919&oq=halo+spinning+cursor&aqs=chrome..69i57.4012j0j7&sourceid=chrome&ie=UTF-8
+# TO-DO: Estimate 'Doneness' by number of items x file size. 
+# TO-DO: Allow module to be executed via terminal using argparse module
+# TO-DO: Add an option to let user ignore directories in _find_files
+# TO-DO: Allow user to decide to save a list of all found files. This list 
+# should either be placed in the same directory as the destination directories or 
+# separately in each of destination directory (showing only the source files for this
+# directory)
 
-# FIXMES:
-# 1.) Currently there is the issue, that sometimes files that are in the same directory can have the same name
-# in this case (which raises WinError, a file can't be copied if there's already a file with the same name). For this
-# the same logic as for the parent folder has to be applied (create new name for this file and add _idx to it)
+def _get_suffixes_tuple(which_suffixes='all'):
+    '''Get a tuple of suffixes based on the attached .json file file or based
+    on a user input.
+    
+    Parameters
+    ----------
+    which_suffixes : str, list, tuple, optional
+        If str and 'all', all suffixes from the .json file will be used for the search.
+        If str and not 'all', a single file suffix is provided (e.g. '.png'.).
+        If list, the strings represent subsets of the .json file (e.g. ['video','bitmap']).
+        If tuple, multiple file suffixes are provided (e.g. ('.png','.jpeg')).
+        
+        Default: 'all'
 
-# define which directory should be examined
-examined_directory = "D:/backups/2012_03_backup_hannes"
+    Returns
+    -------
+    suffixes : str,tuple of str
+        Returns a single suffix or a tuple of file suffixes that should be used
+        for the file search.
 
-# define in which folder data should be copied (note that this string must end with a slash)
-destination_directory = "D:/gutenwiesner/mediafiles/2012_03_backup_hannes_mediafiles/"
+    '''
+    
+    if isinstance(which_suffixes, str) and which_suffixes == 'all':
+        suffixes_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'suffixes.json')
+        with open(suffixes_path) as json_file:
+            suffixes_dict = json.load(json_file)
+            
+        suffixes = tuple([suffix for suffixes in suffixes_dict.values() for suffix in suffixes])
+    
+    elif isinstance(which_suffixes, list):
+        suffixes_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'suffixes.json')
+        with open(suffixes_path) as json_file:
+            suffixes_dict = json.load(json_file)
+            
+        suffixes_dict = {key: suffixes_dict[key] for key in which_suffixes}
+        suffixes = tuple([suffix for suffixes in suffixes_dict.values() for suffix in suffixes])
+        
+    elif isinstance(which_suffixes, (str, tuple)):
+        suffixes = which_suffixes
 
-# define suffixes to search for 
-suffixes = (
-    ".bmp",
-	".gif",
-	".ico",
-	".jpeg",
-	".jpg",
-	".png",
-	".tif",
-	".tiff",
-	".svg",
-	".3g2",
-	".3gp",
-	".avi",
-	".asf",
-	".flv",
-	".m4v",
-	".mov",
-	".mp4",
-	".mpg",
-	".mpeg",
-	".wmv",
-	".rm"
-	)
+    return suffixes
+    
+def _find_files(src,suffixes):
+    '''Search for files in a source directory based on one or multiple
+    file suffixes.
 
-# create destination folder if not yet manually created by user
-if not os.path.exists(destination_directory):
-    os.makedirs(destination_directory)
+    Parameters
+    ----------
+    src : str
+        The source directory.
+        
+    suffixes : str, tuple of strs 
+        A single file suffix or tuple of file suffixes that should be 
+        searched for (e.g. '.jpeg' or ('.jpeg','.png')).
 
-# search for files ending with suffixes above
-# returns list with file paths
-# note: .lower() method is implemented to avoid case sensitiveness concerning suffixes (e.g. files with extension ".JPG" should also be valid)
-def find_files(folder,suffixes):
+    Returns
+    -------
+    filepath_list : list
+        A list of all found filepaths
+
+    '''
+    
+    src = os.path.normpath(src)
 
     filepath_list = []
 
-    for (paths, dirs, files) in os.walk(folder):
+    for (paths,dirs,files) in os.walk(src):
         for file in files:
             if file.lower().endswith(suffixes):
-                filepath_list.append(os.path.join(paths, file))
+                filepath_list.append(os.path.join(paths,file))
     
     return(filepath_list)
 
-def copy_media_files(filepathlist,dst_dir):
-
-    # get listlength for later user information
-    list_length = len(filepathlist)
+# FIXME: Is current_max_index really necessary? Couldn't it be automatically
+# inferred from n_matches? If there's only one match, than there can't be an index,
+# therefore current_max_index == None? If there are > 1 match than current_max_index
+# automatically is n_matches - 1? But maybe the current method is not necessary but at least more
+# fail-safe? One could also simply increase an integer-counter, instead of appending
+# elements to a list and taking len(list). 
+def _get_number_of_matches(dst_dir_set,dst_dir_name):
+    '''Get number of matches for a given name of a directory in a set of
+    directory paths.
     
-    # last directory path
-    last_dir = None
+
+    Parameters
+    ----------
+    dst_dir_set : str
+        A set of directory paths (e.g. {'dst/foo','dst/bar'})
+    dst_dir_name : str
+        Name of a single directory
+
+    Returns
+    -------
+    n_matches: int
+        Number of found matches for the given input name of the directory
+    current_max_index : int
+        The current maximum index of any of the found matches
+
+    '''
     
-    # last destination folder path
-    last_dst = None
-	
-    for index,filepath in enumerate(filepathlist,start=1):
+    dst_dir_name_set = {os.path.basename(os.path.normpath(dir_path)) for dir_path in dst_dir_set}
+    re_pattern = dst_dir_name + '(_)([0-9]+)?$'
+    matches = []
+    matches_indexes = []
 
-        # get current directory path
-        current_dir = os.path.dirname(filepath)
+    for dir_name in dst_dir_name_set:
+        re_match = re.match(re_pattern,dir_name)
+        
+        if dir_name == dst_dir_name or re_match:
+            matches.append(dir_name)
+        if re_match:
+            match_index = int(re_match.group(2))
+            matches_indexes.append(match_index)
+    
+    n_matches = len(matches)
+    
+    if n_matches > 1:
+        current_max_index = max(matches_indexes)
+    else:
+        current_max_index = None
+    
+    return n_matches,current_max_index
 
-        # check if current file is in same directory as file before
-        # case 1: current file is not in the same directory as file before 
-        if current_dir != last_dir:
-			
-            # get the name of parent folder of file
-            parent_name = os.path.split(os.path.dirname(filepath))[1]
+def _get_dst_dirs_list(filepath_list,dst):
+    '''Get a list of destination directories based on a filepath list. 
+    The function will automatically create unique destination directories
+    for groups of files that belong to the same source directory. In case
+    there are multiple source directories with the same name, the function
+    will add an index to the destination directories to maintain unique
+    names for all destination directories. 
+    
+    Parameters
+    ----------
+    filepath_list : list
+        A list of filepaths
+    dst : str
+        Path to the master destination directory.
 
-            # create a new directory path
-            parentfolder_path = dst_dir + parent_name
+    Returns
+    -------
+    dst_dirs_list : list
+        A list of destination directories for the input list of filepaths.
 
-            # check if this directory already exists
-            # if not, just create folder in destination folder
-            if not os.path.exists(parentfolder_path):
+    '''
+    
+    dst = os.path.normpath(dst)
+    last_src_dir = None
+    dst_dirs_list = []
+    
+    for filepath in filepath_list:
 
-                os.makedirs(parentfolder_path)
+        current_src_dir = os.path.dirname(filepath)
+        dst_dir_name = os.path.split(os.path.dirname(filepath))[1]
+        dst_dir_path = os.path.join(dst,dst_dir_name)
 
-                # save this ajusted folder path as last destination directory
-                last_dst = parentfolder_path
+        if current_src_dir == last_src_dir:
+            dst_dirs_list.append(dst_dirs_list[-1])
+
+        elif current_src_dir != last_src_dir:
             
-            # if directory already exists, add an index to original directory
-            # to create a unique folder name. For this get all duplicate folders
-            # and add unique index to name of parent folder
-            else:
+            dst_dir_set = set(dst_dirs_list)
+            
+            if dst_dir_path in dst_dir_set:
 
-                dst_folder_list = os.listdir(destination_directory)
-                matches = []
+                n_matches,current_max_index = _get_number_of_matches(dst_dir_set,dst_dir_name)
+
+                if n_matches == 1:
+                    dst_dir_path = dst_dir_path + "_1"
+                    dst_dirs_list.append(dst_dir_path)
+                    
+                elif n_matches > 1:
+                    dst_dir_path = f"{dst_dir_path}_{str(current_max_index + 1)}"
+                    dst_dirs_list.append(dst_dir_path)
                 
-                # FIXME: List of indices could already be extracted here
-                re_pattern = parent_name + '(_[0-9]+)?$'
-                
-                for folder in dst_folder_list:
-                    if folder == parent_name or re.match(re_pattern,folder):
-                        matches.append(folder)
+            elif not dst_dir_path in dst_dir_set:
+                dst_dirs_list.append(dst_dir_path)
+        
+        last_src_dir = current_src_dir
+        
+    return(dst_dirs_list)
 
-                # subcase 1: there is one but only one duplicate of this folder name.  
-                # Append "_1" index to path to avoid WinError 183
-                if len(matches) == 1:
-					
-                    parentfolder_path = parentfolder_path + "_1"
+def _copy_files(filepath_list,dst_dirs_list):
+    '''Copy files based on a list of filepaths and a corresponding
+    list of destination directories.'''
+    
+    for dst_dir in set(dst_dirs_list):
+        os.makedirs(dst_dir)
 
-                    # create folder with adjusted folder name
-                    os.makedirs(parentfolder_path)
+    for file,dst_dir in zip(filepath_list,dst_dirs_list):
+        shutil.copy2(file,dst_dir)
 
-                    # save this ajusted folder path as last destination directory
-                    last_dst = parentfolder_path
+def run(src_dir,dst_dir,which_suffixes='all'):
+    '''Find and copy files with their respective parent directories 
+    from a source directory to a destination directory
+    
+    Parameters
+    ----------
+    src_dir : str
+        Path to the source directory.
+    dst_dir : str
+        Path to the destination directory.
+    which_suffixes : str, tuple of str, optional
+        If str and 'all', all suffixes from the .json file will be used for the search.
+        If list, the strings represent subsets of the .json file (e.g. ['video','bitmap'])
+        If str and not 'all', a single file suffix is provided (e.g. '.png'.
+        If tuple, multiple file suffixes are provided (e.g. ('.png','.jpeg').
+        
+        Default: 'all'
 
-                # subcase 2: there is more than one duplicate of this folder name. 
-                # Look for the current maximum index and increment it by 1 to create
-                # a new unique folder path
-                elif len(matches) > 1:
+    Returns
+    -------
+    None.
 
-                    folder_indexes = []
+    '''
+    
+    suffixes =  _get_suffixes_tuple(which_suffixes)
+    filepath_list = _find_files(src_dir,suffixes)
+    dst_dirs_list = _get_dst_dirs_list(filepath_list,dst_dir)
+    
+    _copy_files(filepath_list,dst_dirs_list)
 
-                    # extract all index integers from matches list
-                    # FIXME: List of indices could already be extracted above
-                    for match in matches:
-                        folder_index = re.match(r'.*?([0-9]+)?$',match).group(1)
-
-                        if folder_index is not None:
-                            folder_indexes.append(folder_index)
-					
-                    # Get the current maximum index
-                    # note: before being able to get maximum index, index string list has to be converted to integer list otherwise max() doesn't work
-                    print(filepath)
-                    print(matches)
-                    folder_index_max = max([int(folder_index) for folder_index in folder_indexes])
-
-                    # create new index by incrementing old one by one
-                    folder_index_new = str(folder_index_max + 1)
-					
-                    # create folder with adjusted folder name
-                    parentfolder_path = parentfolder_path + "_" + folder_index_new
-
-                    # create folder with adjusted folder name
-                    os.makedirs(parentfolder_path)
-
-                    # save this ajusted folder path as last destination directory
-                    last_dst = parentfolder_path
-					
-            # copy file to new subfolder
-            shutil.copy2(filepath,parentfolder_path)
-
-            # print user progress information 
-            progress = round(index / list_length * 100,2)
-            print('Progress: ~ {} %'.format(progress),"\n")
-
-        # case 2: current file is in same directory as file before (they belong to the same folder)
-        elif current_dir == last_dir:
-
-            # copy file
-            shutil.copy2(filepath,last_dst)
-
-            # print user progress information 
-            progress = round(index / list_length * 100,2)
-            print('Progress: ~ {} %'.format(progress))
-
-        # change last directory to current directory for next iteration
-        last_dir = current_dir
-
-        # write original file paths to txt file for user information
-        os.chdir(dst_dir)
-		
-        with open("filepathlist.txt", "w",encoding='utf-8') as text_file:
-            for filepath in filepathlist:
-                text_file.write(filepath + "\n")
-
-copy_media_files(find_files(examined_directory,suffixes),destination_directory)
+if __name__ == '__main__':
+    pass
