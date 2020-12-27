@@ -1,0 +1,27 @@
+{
+  "bitmap": [
+    ".bmp",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".svg"
+  ],
+  "video": [
+    ".3g2",
+    ".3gp",
+    ".avi",
+    ".asf",
+    ".flv",
+    ".m4v",
+    ".mov",
+    ".mp4",
+    ".mpg",
+    ".mpeg",
+    ".wmv",
+    ".rm"
+  ]
+}
