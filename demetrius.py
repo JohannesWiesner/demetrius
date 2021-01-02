@@ -20,6 +20,20 @@ import shutil
 # should either be placed in the same directory as the destination directories or 
 # separately in each of destination directory (showing only the source files for this
 # directory)
+# TO-DO: Let the user decide over the fashion of added indices (e.g. '_1' or ' (1)')
+
+# FIXME: See FIXMEs below. There are two reasons why an unique index has to be 
+# added to a destination directory: 1.) The two destination directories
+# are based on different source directories (e.g. './src/foo/bar' is a different
+# source directory than './src/foobar/bar') 2.) on case sensitive OS like 
+# windows you cannot create one destination directory called 'foo' and another one
+# called 'Foo'. So even though these strings are formally different one still needs
+# to make them unique (e.g. by adding increasing indices ('foo_1','Foo_2')) so that
+# they can be created. There can be cases where both conditions can be true at the same
+# time. In that case two increasing indices should be added (the first one
+# to ensure that the destination directory is unique to other destination directories
+# that have the EXACT same name and a second one to make sure that two destination directories
+# that only differ in lower- and upper-case writing are made unique in order to be created)
 
 def _get_suffixes_tuple(which_suffixes='all'):
     '''Get a tuple of suffixes based on the attached .json file file or based
@@ -94,12 +108,16 @@ def _find_files(src,suffixes):
     
     return(filepath_list)
 
+# FIXME: The functionality of this function can probably completely replaced by
+# _return_duplicates_indices and _add_increasing_indices below (see also _get_dst_dirs_list). 
+# If this is possible, this function can probably be deleteted. In this case, the 
+# following FIXME does not need to be solved anymore. 
 # FIXME: Is current_max_index really necessary? Couldn't it be automatically
 # inferred from n_matches? If there's only one match, than there can't be an index,
 # therefore current_max_index == None? If there are > 1 match than current_max_index
 # automatically is n_matches - 1? But maybe the current method is not necessary but at least more
 # fail-safe? One could also simply increase an integer-counter, instead of appending
-# elements to a list and taking len(list). 
+# elements to a list and taking len(list).
 def _get_number_of_matches(dst_dir_set,dst_dir_name):
     '''Get number of matches for a given name of a directory in a set of
     directory paths.
@@ -144,6 +162,17 @@ def _get_number_of_matches(dst_dir_set,dst_dir_name):
     
     return n_matches,current_max_index
 
+# FIXME: The functionality of this function can probably be completely replaced by
+# _get_duplicates_indices and _add_increasing_indices below (see also _get_number_of_matches). The new
+# _get_dst_dirs_list function should only create a list of destination directories
+# based on an input filepath list. All other functionalities (finding duplicates
+# and adding indices) should be handed over to _get_duplicates_indices and 
+# _add_increasing_indices. 
+# FIXME: In order to stick to one fashion of adding indices, one should decide
+# if every duplicate should get an index (e.g. '.dst/foo_1','./dst/foo_2') or 
+# if the first element should be left blank and the added index should start on the
+# second duplicate (e.g. './dst/foo','./dst/foo_1'). Probably the first solution
+# is more straightforward for the user. 
 def _get_dst_dirs_list(filepath_list,dst):
     '''Get a list of destination directories based on a filepath list. 
     The function will automatically create unique destination directories
@@ -202,6 +231,42 @@ def _get_dst_dirs_list(filepath_list,dst):
         
     return(dst_dirs_list)
 
+# FIXME: Improve docstring, make code prettier (better variable names, etc.)
+# FIXME: This currently does not work properly! The dst_dirs_list contains
+# duplicates that should be treated the same (e.g. './dst/foo','.dst/foo'). The function
+# should only identify duplicates that have the same name but different
+# lower and upper-case writing (e.g. './dst/foo','./dst/Foo'). Then, all
+# './dst/foo directories should be added with a _1 and all './dst/Foo' directories
+# should be added with a _2'!.
+def _get_duplicates_indices(dst_dirs_list):
+    '''Convert dst_dirs_list to lower case. Then find duplicates in this 
+    list. Rationale behind this function is, that case-insensitive OS like
+    Windows can't create destination directories with the same name (even
+    though they have different upper- and lower case writings. So even though
+    './dst/Foo' is not the same as './dst/foo' Windows will treat them as 
+    the same name and therefore raise error when you want to create them both)
+    '''
+    
+    # get a copy of the original list and convert to lower case
+    dst_dirs_list_lower_case = [dst_dir.lower() for dst_dir in dst_dirs_list]
+    
+    # https://stackoverflow.com/questions/65538576/get-list-of-lists-of-duplicates-indices/65538658#65538658
+    dupes_indices = [y for y in [[i for i, v in enumerate(dst_dirs_list_lower_case) if v == x] for x in set(dst_dirs_list_lower_case)] if len(y) > 1]
+        
+    return dupes_indices
+
+# FIXME: Improve docstring, make code prettier (better variable names, etc.)
+def _add_increasing_indices(dst_dirs_list,dupes_indices):
+    '''For all duplicate elements add increasing indices to make the unique'''
+    
+    dst_dirs_list_copy = dst_dirs_list.copy()
+    
+    for indices_list in dupes_indices:
+        for added_index,idx in enumerate(indices_list,start=1):
+            dst_dirs_list_copy[idx] = f"{dst_dirs_list_copy[idx]}_{added_index}"
+
+    return dst_dirs_list_copy
+
 def _copy_files(filepath_list,dst_dirs_list):
     '''Copy files based on a list of filepaths and a corresponding
     list of destination directories.'''
@@ -239,6 +304,9 @@ def run(src_dir,dst_dir,which_suffixes='all'):
     suffixes =  _get_suffixes_tuple(which_suffixes)
     filepath_list = _find_files(src_dir,suffixes)
     dst_dirs_list = _get_dst_dirs_list(filepath_list,dst_dir)
+    
+    dupes_indices = _get_duplicates_indices(dst_dirs_list)
+    dst_dirs_list = _add_increasing_indices(dst_dirs_list,dupes_indices)
     
     _copy_files(filepath_list,dst_dirs_list)
 
