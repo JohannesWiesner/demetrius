@@ -238,6 +238,8 @@ def _get_dst_dirs_list(filepath_list,dst):
 # lower and upper-case writing (e.g. './dst/foo','./dst/Foo'). Then, all
 # './dst/foo directories should be added with a _1 and all './dst/Foo' directories
 # should be added with a _2'!.
+# I already asked a question on stackoverflow:
+# https://stackoverflow.com/questions/65539888/find-duplicates-in-a-list-of-strings-differing-only-in-upper-and-lower-case-writ/65540609#65540609
 def _get_duplicates_indices(dst_dirs_list):
     '''Convert dst_dirs_list to lower case. Then find duplicates in this 
     list. Rationale behind this function is, that case-insensitive OS like
