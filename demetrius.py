@@ -232,40 +232,58 @@ def _get_dst_dirs_list(filepath_list,dst):
     return(dst_dirs_list)
 
 # FIXME: Improve docstring, make code prettier (better variable names, etc.)
-# FIXME: This currently does not work properly! The dst_dirs_list contains
-# duplicates that should be treated the same (e.g. './dst/foo','.dst/foo'). The function
-# should only identify duplicates that have the same name but different
-# lower and upper-case writing (e.g. './dst/foo','./dst/Foo'). Then, all
-# './dst/foo directories should be added with a _1 and all './dst/Foo' directories
-# should be added with a _2'!.
-# I already asked a question on stackoverflow:
-# https://stackoverflow.com/questions/65539888/find-duplicates-in-a-list-of-strings-differing-only-in-upper-and-lower-case-writ/65540609#65540609
+# FIXME: Ask on stackoverflow, if the whole function can be be rewritten
+# with less code.
 def _get_duplicates_indices(dst_dirs_list):
-    '''Convert dst_dirs_list to lower case. Then find duplicates in this 
-    list. Rationale behind this function is, that case-insensitive OS like
+    '''Rationale behind this function is, that case-insensitive OS like
     Windows can't create destination directories with the same name (even
     though they have different upper- and lower case writings. So even though
     './dst/Foo' is not the same as './dst/foo' Windows will treat them as 
-    the same name and therefore raise error when you want to create them both)
+    the same name and therefore raise error when you want to create them both. Get indices
+    of literal and pseudo duplicates.)
     '''
     
-    # get a copy of the original list and convert to lower case
-    dst_dirs_list_lower_case = [dst_dir.lower() for dst_dir in dst_dirs_list]
+    # get a dictionary with the destination directories as keys and lists of indexes
+    # of those keys as values
+    d = {e:[] for e in set(dst_dirs_list)}
     
-    # https://stackoverflow.com/questions/65538576/get-list-of-lists-of-duplicates-indices/65538658#65538658
-    dupes_indices = [y for y in [[i for i, v in enumerate(dst_dirs_list_lower_case) if v == x] for x in set(dst_dirs_list_lower_case)] if len(y) > 1]
+    for i in range(len(dst_dirs_list)):
+        if dst_dirs_list[i] in d.keys():
+            d[dst_dirs_list[i]].append(i)
+    
+    
+    # convert the list of destination directories to lower case 
+    dst_dirs_list_lower = [e.lower() for e in dst_dirs_list]
+    
+    # Get a list of lists of locations of literal duplicates in the lower case list
+    dupes_indices_list = [y for y in [[i for i, v in enumerate(dst_dirs_list_lower) if v == x] for x in set(dst_dirs_list_lower)] if len(y) > 1]
+    
+    # iterate over these lists in order to combine key-value pairs in the dictionary
+    # where the keys match on the characters but can vary in lower- and uppercase writing
+    literal_and_pseudo_dupes_indices_list = []
+    
+    for l in dupes_indices_list:
         
-    return dupes_indices
+        dupe_list = []
+        dupes_set = {dst_dirs_list[i] for i in l}
+        
+        for key in dupes_set:
+            dupe_list.append(d[key])
+        
+        literal_and_pseudo_dupes_indices_list.append(dupe_list)
+    
+    return literal_and_pseudo_dupes_indices_list
 
 # FIXME: Improve docstring, make code prettier (better variable names, etc.)
-def _add_increasing_indices(dst_dirs_list,dupes_indices):
+def _add_increasing_indices(dst_dirs_list,literal_and_pseudo_dupes_indices_list):
     '''For all duplicate elements add increasing indices to make the unique'''
     
     dst_dirs_list_copy = dst_dirs_list.copy()
-    
-    for indices_list in dupes_indices:
-        for added_index,idx in enumerate(indices_list,start=1):
-            dst_dirs_list_copy[idx] = f"{dst_dirs_list_copy[idx]}_{added_index}"
+        
+    for l in literal_and_pseudo_dupes_indices_list:
+        for added_index,dupes_list in enumerate(l,start=1):
+            for i in dupes_list:
+                dst_dirs_list_copy[i] = f"{dst_dirs_list_copy[i]}_{added_index}"
 
     return dst_dirs_list_copy
 
@@ -307,8 +325,8 @@ def run(src_dir,dst_dir,which_suffixes='all'):
     filepath_list = _find_files(src_dir,suffixes)
     dst_dirs_list = _get_dst_dirs_list(filepath_list,dst_dir)
     
-    dupes_indices = _get_duplicates_indices(dst_dirs_list)
-    dst_dirs_list = _add_increasing_indices(dst_dirs_list,dupes_indices)
+    literal_and_pseudo_dupes_indices_list = _get_duplicates_indices(dst_dirs_list)
+    dst_dirs_list = _add_increasing_indices(dst_dirs_list,literal_and_pseudo_dupes_indices_list)
     
     _copy_files(filepath_list,dst_dirs_list)
 
