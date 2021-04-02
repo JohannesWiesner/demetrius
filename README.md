@@ -1,12 +1,17 @@
 # Demetrius
-A python library for finding and copying media files.
+A python library for finding and copying files within their parent directories.
 
 # NOTE
-This repository is still under development but works! Feel free to send pull requests by having a look on the FIXMEs and TODOs :)
+Feel free to send pull requests by having a look at the FIXMEs and TODOs inside demetrius.py
 
 # Motivation
-Your Grandpa gives you his PC and asks you if you could make a backup of his photos and videos. There's just one problem: All his mediafiles are stored in different folders and in different locations on his drive! A clear case for demetrius. Just pass in the source and destination directories and demetrius will crawl through all the folders, find files whose extensions match the extensions you are looking for and copies the files in the destination directory. And the files are not simply just copied over. Demetrius respects the folder structure. So for example, all files within `holiday_with_family` in the source directory will also be in `holiday_with_family` in the destination directory. Demetrius also takes care of duplicate folder names. For example, if there are several `holiday_with_family` folders on Grandpa's PC (which is not unlikely, because Grandpa forgot that it might be a good idea to specify a unique name for each holiday he spent with the family...) demetrius will conserve the original structure and creates `holiday_with_family_1, holiday_with_family_2, etc.`
+Your Grandpa gives you his PC and asks you if you could make a backup of his photos and videos. There's just one problem: All his mediafiles are stored in different folders and in different locations on his drive! In case you don't want to go manually through each folder, this is a clear case for demetrius. Just pass in the source and destination directory and demetrius will crawl through all the folders, find files whose extensions match the extensions you are looking for and copies the files in the destination directory. 
+
+Demetrius will copy files within their parent directory to ensure that you don't end up with one destination folder where all files are stored in. So for example, all files within a folder `holiday` in the source directory will also be in a `holiday` folder  in the destination directory. Demetrius also takes care of duplicate folder names. For example, if there are several `holiday` folders on Grandpa's PC (which is not unlikely, because Grandpa forgot that it might have been a good idea to specify a unique name for each holiday he spent with the family...) demetrius will conserve the original structure and creates `holiday, holiday_2, etc.`. 
+
+Finally, Demetrius also respect case insensitive OS like Windows where you can't create a folder `holiday` and `Holiday` in the same directory (e.g. by adding indices (`'holiday (1)'`,`'Holiday (2)'`)).
+
 # What Demetrius can't do
-Demetrius is dumb. If you have a folder in the source directory that is called `foobar123` which contains a file named `X23nadjkn.png` (which is a photo of dickbutt) it will copy that with that folder to the destination directory. Accordingly, you have to weight demetrius's dumbness against how much time you want to spend with manually clicking through Grandpas PC. 
+Demetrius is dumb. If you have a folder in the source directory that is called `foobar` which contains a file named `123.png` (which is a photo of dickbutt) it will copy that with that folder to the destination directory. Accordingly, you have to weight demetrius's dumbness against how much time you want to spend with manually clicking through Grandpas PC. 
 # Links
-I can strongly recommend to use [AntiDupl](https://github.com/ermig1979/AntiDupl) after Demetrius was run. This will help you to identify duplicates of files, in case Grandpa saved the same file in different locations on his PC.
+I can strongly recommend to run [AntiDupl](https://github.com/ermig1979/AntiDupl) after Demetrius was run to identify file duplicates.
