@@ -65,13 +65,13 @@ def _get_suffixes_tuple(which_suffixes='all'):
 
     return suffixes
     
-def _find_files(src,suffixes):
+def _find_files(src_dir,suffixes):
     '''Search for files in a source directory based on one or multiple
     file suffixes.
 
     Parameters
     ----------
-    src : str
+    src_dir : str
         The source directory.
         
     suffixes : str, tuple of strs 
@@ -85,11 +85,9 @@ def _find_files(src,suffixes):
 
     '''
     
-    src = os.path.normpath(src)
-
     filepath_list = []
 
-    for (paths,dirs,files) in os.walk(src):
+    for (paths,dirs,files) in os.walk(src_dir):
         for file in files:
             if file.lower().endswith(suffixes):
                 filepath_list.append(os.path.join(paths,file))
