@@ -130,13 +130,13 @@ def _create_destination_directories(filepath_list,dst_dir):
     
     df['dst_dir_path'] = df.apply(create_dst_dir_path,axis=1)
     
-    # find literal duplicates and add indices
+    # find literal duplicates and modify the respective destination directories
     for _,dir_name in df.groupby('src_dir_name'):
         if not dir_name['src_dir_path'].nunique() == 1:
             for idx,(_,src_dir_path) in enumerate(dir_name.groupby('src_dir_path'),start=1):
                 df.loc[src_dir_path.index,'dst_dir_path'] =  df.loc[src_dir_path.index,'dst_dir_path'] + '_' + str(idx)
     
-    # find pseudo duplicates and add indices
+    # find pseudo duplicates and modify the respective destination directories
     df['dst_dir_path_lower_case'] = df['dst_dir_path'].map(str.lower)
         
     for _,dst_dir_path in df.groupby('dst_dir_path_lower_case'):
