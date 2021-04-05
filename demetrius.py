@@ -14,7 +14,8 @@ import pandas as pd
 import argparse
 from spinner import Spinner
 
-# TO-DO: Add an option to let user ignore directories in _find_files
+# TO-DO: Add an option to let user ignore directories in _find_files 
+# https://stackoverflow.com/questions/19859840/excluding-directories-in-os-walk
 # TO-DO: Allow user to decide to save information for all found files. This list 
 # should either be placed in the same directory as the destination directories or 
 # separately in each of destination directory (showing only the source files for this
@@ -264,11 +265,11 @@ if __name__ == '__main__':
     # themselves or they should choose from already provided categories (e.g. bitmap,video))
     # if they neither provide --suffixes or --categories the default 'all' will be used
     suffix_arg_group = parser.add_mutually_exclusive_group()
-    suffix_arg_group.add_argument('-sfx','--suffixes',type=str,nargs='+',help='File suffixes which should be used for the search')
-    suffix_arg_group.add_argument('-cat','--categories',type=str,nargs='+',choices=['bitmap','video'],help='File categories that define a set of file suffixes')
+    suffix_arg_group.add_argument('-sfx','--suffixes',type=str,nargs='+',help='File suffixes which should be used for the search. Mutually exlusive with -cat argument')
+    suffix_arg_group.add_argument('-cat','--categories',type=str,nargs='+',choices=['bitmap','video'],help='Broader file categories (e.g. video or bitmap files) that define the final set of file suffixes. Mutually exclusive with -sfx argument')
 
     # add verbosity argument
-    parser.add_argument('-v','--verbose',action='store_true',help='Print user information')
+    parser.add_argument('-v','--verbose',action='store_true',help='Show progress information on finding and copying files when demetrius is run')
     
     # parse arguments
     args = parser.parse_args()
