@@ -14,14 +14,12 @@ import pandas as pd
 import argparse
 from spinner import Spinner
 
-# TO-DO: Add an option to let user ignore directories in _find_files 
-# https://stackoverflow.com/questions/19859840/excluding-directories-in-os-walk
 # TO-DO: Allow user to decide to save information for all found files. This list 
 # should either be placed in the same directory as the destination directories or 
 # separately in each of destination directory (showing only the source files for this
 # directory)
 # TO-DO: Let the user decide over the fashion of added indices (e.g. '_1' or ' (1)')
-# in _create_destination_directories
+# in _get_dst_dirs_df
 
 def _get_suffixes_tuple(which_suffixes='all'):
     '''Get a tuple of suffixes based on the attached .json file file or based
@@ -64,21 +62,30 @@ def _get_suffixes_tuple(which_suffixes='all'):
         suffixes = which_suffixes
 
     return suffixes
-    
-def _find_files(src_dir,suffixes,verbose=False):
+
+# FIXME: Is there a better test to check if files are broken? Currently
+# only os.path.exists is implemented but I still get files image files
+# that can't be open using IrfanView
+# FIXME: Currently, there's lot's of repetition because of the verbose
+# argument. Maybe it would be better to work with a decorator in the run() function
+# like from the halo package here?
+def _find_files(src_dir,suffixes,exclude_dirs=None,verbose=False):
     '''Search for files in a source directory based on one or multiple
     file suffixes. This function will only append a found file to the list
-    if it exists (using os.path.exists) to check if the file is broken.
+    if it exists (using os.path.exists) wich serves as a minimal test for
+    checking if a file is broken. 
 
     Parameters
     ----------
     src_dir : str
         The source directory.
-        
     suffixes : str, tuple of strs 
         A single file suffix or tuple of file suffixes that should be 
         searched for (e.g. '.jpeg' or ('.jpeg','.png')).
-
+    exclude_dirs : str, list of str, None
+        Name of single directory of list of directory names that should be ignored when searching for files.
+        All of the specified directories and their children directories will be
+        ignored (Default: None)
     verbose : bool
         If true, print spinning cursor
 
@@ -90,10 +97,14 @@ def _find_files(src_dir,suffixes,verbose=False):
     '''
     
     filepath_list = []
-
+    
     if verbose == True:
         with Spinner('Searching for files '):
             for (paths,dirs,files) in os.walk(src_dir):
+                
+                if exclude_dirs:
+                    dirs[:] = [d for d in dirs if d not in exclude_dirs]
+                    
                 for file in files:
                     filepath = os.path.join(paths,file)
                     if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
@@ -101,6 +112,10 @@ def _find_files(src_dir,suffixes,verbose=False):
 
     if verbose == False:
         for (paths,dirs,files) in os.walk(src_dir):
+            
+            if exclude_dirs:
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            
             for file in files:
                 filepath = os.path.join(paths,file)
                 if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
@@ -112,7 +127,7 @@ def _find_files(src_dir,suffixes,verbose=False):
         
     return filepath_list
 
-def _create_destination_directories(filepath_list,dst_dir):
+def _get_dst_dirs_df(filepath_list,dst_dir):
     '''Create a pandas.DataFrame holding the source filepaths as one column and
     corresponding destination directories as another column. In case there are 
     multiple source  directories with the same name, the function will add indices to the 
@@ -127,42 +142,42 @@ def _create_destination_directories(filepath_list,dst_dir):
 
     Returns
     -------
-    df : pd.DataFrame
+    dst_dirs_df : pd.DataFrame
         A data frame that maps each filepath to its corresponding destination
         directory.
 
     '''
 
     # create data frame with filepath as column
-    df = pd.DataFrame({'filepath':filepath_list})
+    dst_dirs_df = pd.DataFrame({'filepath':filepath_list})
     
     # get path to parent directory for each source file
-    df['src_dir_path'] = df['filepath'].map(os.path.dirname)
+    dst_dirs_df['src_dir_path'] = dst_dirs_df['filepath'].map(os.path.dirname)
     
     # get only the name of the parent for each source file
-    df['src_dir_name'] = df['src_dir_path'].map(os.path.basename)
+    dst_dirs_df['src_dir_name'] = dst_dirs_df['src_dir_path'].map(os.path.basename)
     
     # create destination path directory
     def create_dst_dir_path(row):
         return os.path.join(dst_dir,row['src_dir_name'])
     
-    df['dst_dir_path'] = df.apply(create_dst_dir_path,axis=1)
+    dst_dirs_df['dst_dir_path'] = dst_dirs_df.apply(create_dst_dir_path,axis=1)
     
     # find literal duplicates and modify the respective destination directories
-    for _,dir_name in df.groupby('src_dir_name'):
+    for _,dir_name in dst_dirs_df.groupby('src_dir_name'):
         if not dir_name['src_dir_path'].nunique() == 1:
             for idx,(_,src_dir_path) in enumerate(dir_name.groupby('src_dir_path'),start=1):
-                df.loc[src_dir_path.index,'dst_dir_path'] =  df.loc[src_dir_path.index,'dst_dir_path'] + '_' + str(idx)
+                dst_dirs_df.loc[src_dir_path.index,'dst_dir_path'] =  dst_dirs_df.loc[src_dir_path.index,'dst_dir_path'] + '_' + str(idx)
     
     # find pseudo duplicates and modify the respective destination directories
-    df['dst_dir_path_lower_case'] = df['dst_dir_path'].map(str.lower)
+    dst_dirs_df['dst_dir_path_lower_case'] = dst_dirs_df['dst_dir_path'].map(str.lower)
         
-    for _,dst_dir_path in df.groupby('dst_dir_path_lower_case'):
+    for _,dst_dir_path in dst_dirs_df.groupby('dst_dir_path_lower_case'):
         if dst_dir_path['src_dir_path'].nunique() != 1:
             for idx,(_,dir_name) in enumerate(dst_dir_path.groupby('src_dir_name'),start=1):
-                df.loc[dir_name.index,'dst_dir_path'] = df.loc[dir_name.index,'dst_dir_path'] + ' (' + str(idx) + ')'
+                dst_dirs_df.loc[dir_name.index,'dst_dir_path'] = dst_dirs_df.loc[dir_name.index,'dst_dir_path'] + ' (' + str(idx) + ')'
     
-    return df
+    return dst_dirs_df
 
 def _copy_files(dst_dirs_df,verbose=False):
     '''Copy files based on a list of source filepaths and a corresponding
@@ -175,7 +190,7 @@ def _copy_files(dst_dirs_df,verbose=False):
         column specifying the destination directories.
     verbose : boolean, optional
         If True, copy process is estimated based on total bytes
-        copied so far and then printed to console. The default is False.
+        copied so far and then printed to console (Default: False).
 
     Returns
     -------
@@ -201,7 +216,7 @@ def _copy_files(dst_dirs_df,verbose=False):
         for file,dst_dir in zip(dst_dirs_df['filepath'],dst_dirs_df['dst_dir_path']):
             shutil.copy2(file,dst_dir)
 
-def run(src_dir,dst_dir,which_suffixes='all',verbose=False):
+def run(src_dir,dst_dir,which_suffixes='all',exclude_dirs=None,verbose=False):
     '''Find and copy files with their respective parent directories 
     from a source directory to a destination directory
     
@@ -216,10 +231,13 @@ def run(src_dir,dst_dir,which_suffixes='all',verbose=False):
         If str and not 'all', a single file suffix is provided (e.g. '.png'.).
         If list, the strings represent file subsets of the .json file (e.g. ['video','bitmap']).
         If tuple, multiple file suffixes are provided (e.g. ('.png','.jpeg')).
-        
-        Default: 'all'
+        (Default: 'all').
+    exclude_dirs : str, list of str, None
+        Name of single directory of list of directory names that should be ignored when searching for files.
+        All of the specified directories and their children directories will be
+        ignored (Default: None).
     verbose: bool
-        If True, prints user information to console.
+        If True, prints user information to console (Default: False).
 
     Returns
     -------
@@ -241,10 +259,13 @@ def run(src_dir,dst_dir,which_suffixes='all',verbose=False):
     suffixes =  _get_suffixes_tuple(which_suffixes)
     
     # find files
-    filepath_list = _find_files(src_dir,suffixes,verbose)
+    if exclude_dirs and isinstance(exclude_dirs,str):
+        exclude_dirs = list(exclude_dirs)
+    
+    filepath_list = _find_files(src_dir,suffixes,exclude_dirs,verbose)
     
     # get data frame with destination directories
-    dst_dirs_df = _create_destination_directories(filepath_list,dst_dir)
+    dst_dirs_df = _get_dst_dirs_df(filepath_list,dst_dir)
     
     # copy files
     _copy_files(dst_dirs_df,verbose)
@@ -256,7 +277,7 @@ if __name__ == '__main__':
                                                 destination directory \
                                                 while preserving the original \
                                                 parent directories.')
-
+    
     # add required arguments source and destination directory
     parser.add_argument('-src','--source_directory',type=str,required=True,help='The source directory which should be searched for files')
     parser.add_argument('-dst','--destination_directory',type=str,required=True,help='The destination directory where the files should be copied to within their parent directories')
@@ -267,10 +288,13 @@ if __name__ == '__main__':
     suffix_arg_group = parser.add_mutually_exclusive_group()
     suffix_arg_group.add_argument('-sfx','--suffixes',type=str,nargs='+',help='File suffixes which should be used for the search. Mutually exlusive with -cat argument')
     suffix_arg_group.add_argument('-cat','--categories',type=str,nargs='+',choices=['bitmap','video'],help='Broader file categories (e.g. video or bitmap files) that define the final set of file suffixes. Mutually exclusive with -sfx argument')
-
+    
     # add verbosity argument
     parser.add_argument('-v','--verbose',action='store_true',help='Show progress information on finding and copying files when demetrius is run')
     
+    # add exclude dirs argument
+    parser.add_argument('-e','--exclude',type=str,nargs='+',help='One or multiple names of directories that should be ignored when searching for files. All of the specified directories and their children directories will be ignored')
+
     # parse arguments
     args = parser.parse_args()
     
@@ -285,4 +309,5 @@ if __name__ == '__main__':
     run(src_dir=args.source_directory,
         dst_dir=args.destination_directory,
         which_suffixes=which_suffixes,
+        exclude_dirs=args.exclude,
         verbose=args.verbose)
