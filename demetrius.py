@@ -12,10 +12,8 @@ import sys
 import shutil
 import pandas as pd
 import argparse
+from spinner import Spinner
 
-# TO-DO: Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
-# https://www.google.com/search?q=halo+spinning+cursor&rlz=1C1CHZN_deDE919DE919&oq=halo+spinning+cursor&aqs=chrome..69i57.4012j0j7&sourceid=chrome&ie=UTF-8
-# TO-DO: Estimate 'Doneness' by number of items x file size.
 # TO-DO: Add an option to let user ignore directories in _find_files
 # TO-DO: Allow user to decide to save information for all found files. This list 
 # should either be placed in the same directory as the destination directories or 
@@ -66,9 +64,10 @@ def _get_suffixes_tuple(which_suffixes='all'):
 
     return suffixes
     
-def _find_files(src_dir,suffixes):
+def _find_files(src_dir,suffixes,verbose=False):
     '''Search for files in a source directory based on one or multiple
-    file suffixes.
+    file suffixes. This function will only append a found file to the list
+    if it exists (using os.path.exists) to check if the file is broken.
 
     Parameters
     ----------
@@ -79,6 +78,9 @@ def _find_files(src_dir,suffixes):
         A single file suffix or tuple of file suffixes that should be 
         searched for (e.g. '.jpeg' or ('.jpeg','.png')).
 
+    verbose : bool
+        If true, print spinning cursor
+
     Returns
     -------
     filepath_list : list
@@ -88,11 +90,21 @@ def _find_files(src_dir,suffixes):
     
     filepath_list = []
 
-    for (paths,dirs,files) in os.walk(src_dir):
-        for file in files:
-            if file.lower().endswith(suffixes):
-                filepath_list.append(os.path.join(paths,file))
-    
+    if verbose == True:
+        with Spinner('Searching for files '):
+            for (paths,dirs,files) in os.walk(src_dir):
+                for file in files:
+                    filepath = os.path.join(paths,file)
+                    if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
+                        filepath_list.append(filepath)
+
+    if verbose == False:
+        for (paths,dirs,files) in os.walk(src_dir):
+            for file in files:
+                filepath = os.path.join(paths,file)
+                if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
+                    filepath_list.append(filepath)
+
     if not filepath_list:
         sys.stdout.write('Did not find any files based on the given suffixes')
         sys.exit()
@@ -151,17 +163,44 @@ def _create_destination_directories(filepath_list,dst_dir):
     
     return df
 
-def _copy_files(dst_dirs_df):
+def _copy_files(dst_dirs_df,verbose=False):
     '''Copy files based on a list of source filepaths and a corresponding
-    list of destination directories.'''
+    list of destination directories.
+    
+    Parameters
+    ----------
+    dst_dirs_df : pd.DataFrame
+        A dataframe that holds a column with the source filepaths and one
+        column specifying the destination directories.
+    verbose : boolean, optional
+        If True, copy process is estimated based on total bytes
+        copied so far and then printed to console. The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
     
     for dst_dir in set(dst_dirs_df['dst_dir_path']):
         os.makedirs(dst_dir)
+    
+    if verbose == True:
+        
+        dst_dirs_df['filesize'] = dst_dirs_df['filepath'].map(os.path.getsize)
+        bytes_total = dst_dirs_df['filesize'].sum()
+        bytes_copied = 0
+        
+        for idx,(file,dst_dir) in enumerate(zip(dst_dirs_df['filepath'],dst_dirs_df['dst_dir_path'])):
+            shutil.copy2(file,dst_dir)
+            bytes_copied += dst_dirs_df['filesize'][idx]
+            sys.stdout.write(f"Copied ~ {round(bytes_copied / bytes_total * 100,2)}% of files\r")
+     
+    elif verbose == False:
+        for file,dst_dir in zip(dst_dirs_df['filepath'],dst_dirs_df['dst_dir_path']):
+            shutil.copy2(file,dst_dir)
 
-    for file,dst_dir in zip(dst_dirs_df['filepath'],dst_dirs_df['dst_dir_path']):
-        shutil.copy2(file,dst_dir)
-
-def run(src_dir,dst_dir,which_suffixes='all'):
+def run(src_dir,dst_dir,which_suffixes='all',verbose=False):
     '''Find and copy files with their respective parent directories 
     from a source directory to a destination directory
     
@@ -178,28 +217,36 @@ def run(src_dir,dst_dir,which_suffixes='all'):
         If tuple, multiple file suffixes are provided (e.g. ('.png','.jpeg')).
         
         Default: 'all'
+    verbose: bool
+        If True, prints user information to console.
 
     Returns
     -------
     None.
 
     '''
-   
+       
     # get OS conform separator style
     src_dir = os.path.normpath(src_dir)
     dst_dir = os.path.normpath(dst_dir)
     
+    # check if the input directories exist
+    if not os.path.isdir(src_dir):
+        raise NotADirectoryError('The specified source directory does not exist')
+    if not os.path.isdir(dst_dir):
+        raise NotADirectoryError('The specified destination directory does not exist')
+        
     # get suffixes
     suffixes =  _get_suffixes_tuple(which_suffixes)
     
     # find files
-    filepath_list = _find_files(src_dir,suffixes)
+    filepath_list = _find_files(src_dir,suffixes,verbose)
     
     # get data frame with destination directories
     dst_dirs_df = _create_destination_directories(filepath_list,dst_dir)
     
     # copy files
-    _copy_files(dst_dirs_df)
+    _copy_files(dst_dirs_df,verbose)
 
 if __name__ == '__main__':
     
@@ -219,7 +266,9 @@ if __name__ == '__main__':
     suffix_arg_group = parser.add_mutually_exclusive_group()
     suffix_arg_group.add_argument('-sfx','--suffixes',type=str,nargs='+',help='File suffixes which should be used for the search')
     suffix_arg_group.add_argument('-cat','--categories',type=str,nargs='+',choices=['bitmap','video'],help='File categories that define a set of file suffixes')
-    parser.set_defaults()
+
+    # add verbosity argument
+    parser.add_argument('-v','--verbose',action='store_true',help='Print user information')
     
     # parse arguments
     args = parser.parse_args()
@@ -234,4 +283,5 @@ if __name__ == '__main__':
     # run demetrius
     run(src_dir=args.source_directory,
         dst_dir=args.destination_directory,
-        which_suffixes=which_suffixes)
+        which_suffixes=which_suffixes,
+        verbose=args.verbose)
