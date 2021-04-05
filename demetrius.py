@@ -8,13 +8,14 @@ directory to a destination directory .
 
 import json
 import os
+import sys
 import shutil
 import pandas as pd
+import argparse
 
 # TO-DO: Add spinning curser (https://stackoverflow.com/questions/4995733/how-to-create-a-spinning-command-line-cursor)
 # https://www.google.com/search?q=halo+spinning+cursor&rlz=1C1CHZN_deDE919DE919&oq=halo+spinning+cursor&aqs=chrome..69i57.4012j0j7&sourceid=chrome&ie=UTF-8
-# TO-DO: Estimate 'Doneness' by number of items x file size. 
-# TO-DO: Allow module to be executed via terminal using argparse module
+# TO-DO: Estimate 'Doneness' by number of items x file size.
 # TO-DO: Add an option to let user ignore directories in _find_files
 # TO-DO: Allow user to decide to save information for all found files. This list 
 # should either be placed in the same directory as the destination directories or 
@@ -92,6 +93,10 @@ def _find_files(src_dir,suffixes):
             if file.lower().endswith(suffixes):
                 filepath_list.append(os.path.join(paths,file))
     
+    if not filepath_list:
+        sys.stdout.write('Did not find any files based on the given suffixes')
+        sys.exit()
+        
     return filepath_list
 
 def _create_destination_directories(filepath_list,dst_dir):
@@ -190,11 +195,43 @@ def run(src_dir,dst_dir,which_suffixes='all'):
     # find files
     filepath_list = _find_files(src_dir,suffixes)
     
-    # get data frame with destiantion directories
-    dst_dirs_df = _create_destination_directories(filepath_list, dst_dir)
+    # get data frame with destination directories
+    dst_dirs_df = _create_destination_directories(filepath_list,dst_dir)
     
     # copy files
     _copy_files(dst_dirs_df)
 
 if __name__ == '__main__':
-    pass
+    
+    parser = argparse.ArgumentParser(description = 'Find and copy files from \
+                                                a source directory to a \
+                                                destination directory \
+                                                while preserving the original \
+                                                parent directories.')
+
+    # add required arguments source and destination directory
+    parser.add_argument('-src','--source_directory',type=str,required=True,help='The source directory which should be searched for files')
+    parser.add_argument('-dst','--destination_directory',type=str,required=True,help='The destination directory where the files should be copied to within their parent directories')
+    
+    # add a mutually exlusive group (user should either provide one or multiple file suffixes
+    # themselves or they should choose from already provided categories (e.g. bitmap,video))
+    # if they neither provide --suffixes or --categories the default 'all' will be used
+    suffix_arg_group = parser.add_mutually_exclusive_group()
+    suffix_arg_group.add_argument('-sfx','--suffixes',type=str,nargs='+',help='File suffixes which should be used for the search')
+    suffix_arg_group.add_argument('-cat','--categories',type=str,nargs='+',choices=['bitmap','video'],help='File categories that define a set of file suffixes')
+    parser.set_defaults()
+    
+    # parse arguments
+    args = parser.parse_args()
+    
+    if args.suffixes == None and args.categories == None:
+        which_suffixes = 'all'
+    elif args.categories:
+        which_suffixes = args.categories
+    elif args.suffixes:
+        which_suffixes = tuple(args.suffixes)
+    
+    # run demetrius
+    run(src_dir=args.source_directory,
+        dst_dir=args.destination_directory,
+        which_suffixes=which_suffixes)
