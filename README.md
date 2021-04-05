@@ -13,9 +13,9 @@ Finally, Demetrius also respect case insensitive OS like Windows where you can't
 
 # Usage
 Demetrius can be used via the console. For example:
-```python demetrius.py -src ./foo -dst ./bar``` will copy all found files in `./foo` to `./bar` withing their parent directories. For that, the script uses all file suffixes found in `suffixes.json` for the search. You can also filter for specifc  file suffixes via the `-sfx` keyword argument (e.g. `-sfx png jpg`) or even for broad file categories using the `-cat` keyword argument (e.g. `-cat video` for only searching for video files). Use `-v` if you want demetrius to show progress information.
+```python demetrius.py -src ./foo -dst ./bar``` will copy all found files in `./foo` to `./bar` withing their parent directories. For that, the script uses all file suffixes found in `suffixes.json` for the search. You can also filter for specifc  file suffixes via the `-sfx` flag (e.g. `-sfx png jpg`) or even for broad file categories using the `-cat` flag (e.g. `-cat video` for only searching for video files). Use the `-e` flag if you want to ignore certain directories and their children directories (e.g. `-e Windows "Program Files"`). Use `-v` if you want demetrius to show progress information. 
 
 # What Demetrius can't do
-Demetrius is dumb. If you have a folder in the source directory that is called `foobar` which contains a file named `123.png` (which is a photo of dickbutt) it will copy that with that folder to the destination directory. Accordingly, you have to weight demetrius's dumbness against how much time you want to spend with manually clicking through Grandpas PC. 
+Demetrius is dumb. If you have a folder in the source directory that is called `foobar` which contains a file named `123.png` (which is a photo of dickbutt) it will copy that with that folder to the destination directory. Accordingly, you have to weight demetrius's dumbness against how much time you want to spend with manually clicking through Grandpas PC. U
 # Links
 I can strongly recommend to run [AntiDupl](https://github.com/ermig1979/AntiDupl) after Demetrius was run to identify file duplicates.
