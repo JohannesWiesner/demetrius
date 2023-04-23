@@ -19,3 +19,6 @@ Demetrius can be used via the console. For example:
 Demetrius is dumb. If you have a folder in the source directory that is called `foobar` which contains a file named `123.png` (which is a photo of dickbutt) it will copy that with that folder to the destination directory. Accordingly, you have to weight demetrius's dumbness against how much time you want to spend with manually clicking through Grandpas PC. U
 # Links
 I can strongly recommend to run [AntiDupl](https://github.com/ermig1979/AntiDupl) after Demetrius was run to identify file duplicates.
+
+# Related projects
+Total Commander had a plugin called Copy Tree that did exactly what demetrius does. The project site is down, so here's a link from [the Wayback Machine](https://github.com/JohannesWiesner/demetrius.git)
