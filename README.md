@@ -21,4 +21,4 @@ Demetrius is dumb. If you have a folder in the source directory that is called `
 I can strongly recommend to run [AntiDupl](https://github.com/ermig1979/AntiDupl) after Demetrius was run to identify file duplicates.
 
 # Related projects
-Total Commander had a plugin called Copy Tree that did exactly what demetrius does. The project site is down, so here's a link from [the Wayback Machine](https://github.com/JohannesWiesner/demetrius.git)
+Total Commander had a plugin called Copy Tree that did exactly what demetrius does. The project site is down, so here's a link from [the Wayback Machine](https://web.archive.org/web/20220523092447/http://totalcmd.net/plugring/copytree.html)
