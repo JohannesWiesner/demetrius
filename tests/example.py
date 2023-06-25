@@ -7,14 +7,17 @@ run demetrius to demonstrate what it does.
 @author: johannes.wiesner
 """
 
-import subprocess
+
 import os
 import shutil
+import requests
+import tarfile
+import tempfile
 
 import sys
 sys.path.append('../')
-from demetrius import run
 
+from demetrius import run
 
 ###############################################################################
 ## Prepare data ###############################################################
@@ -25,10 +28,29 @@ if os.path.isdir('./src'):
     shutil.rmtree('./src')
 if os.path.isdir('./dst'):
     shutil.rmtree('./dst')
+    
+###############################################################################
+## Download lena.png from GitHub ##############################################
+###############################################################################
+    
+url = "https://github.com/mikolalysenko/lena/archive/master.tar.gz"
+response = requests.get(url)
 
-# download lena.png from GitHub repository
-# FIXME: Make python code out of this bash script
-subprocess.call(['./download_lenna.sh'])
+with tempfile.TemporaryDirectory() as temp_dir:
+    
+    temp_file_path = f"{temp_dir}/lena.tar.gz"
+
+    with open(temp_file_path, "wb") as f:
+        f.write(response.content)
+
+    with tarfile.open(temp_file_path, mode="r:gz") as tar:
+        tar.extractall(path=temp_dir)
+
+    shutil.move(f"{temp_dir}/lena-master/lena.png", "./lena.png")
+
+###############################################################################
+## Download lena.png from GitHub ##############################################
+###############################################################################
 
 # generate folder structure
 os.makedirs('./src')
