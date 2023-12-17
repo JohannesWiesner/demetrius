@@ -4,3 +4,7 @@ __pycache__/
 
 tests/dst/
 tests/src/
+
+# ignore all python scripts except demetrius.py
+*.py
+!demetrius.py
