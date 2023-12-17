@@ -88,6 +88,10 @@ def _find_files(src_dir,suffixes,exclude_dirs=None):
     
     for (paths,dirs,files) in os.walk(src_dir):
         
+        # ignore hidden files and hidden directories
+        files = [f for f in files if not f[0] == '.']
+        dirs[:] = [d for d in dirs if not d[0] == '.']
+        
         if exclude_dirs:
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
         
@@ -278,10 +282,10 @@ def run(src_dir,dst_dir,which_suffixes='all',exclude_dirs=None,verbose=False):
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description = 'Find and copy files from \
-                                                a source directory to a \
-                                                destination directory \
-                                                while preserving the original \
-                                                parent directories.')
+                                                    a source directory to a \
+                                                    destination directory \
+                                                    while preserving the original \
+                                                    parent directories.')
     
     # add required arguments source and destination directory
     parser.add_argument('-src','--source_directory',type=str,required=True,help='The source directory which should be searched for files')
@@ -293,12 +297,12 @@ if __name__ == '__main__':
     suffix_arg_group = parser.add_mutually_exclusive_group()
     suffix_arg_group.add_argument('-sfx','--suffixes',type=str,nargs='+',help='File suffixes which should be used for the search. Mutually exlusive with -cat argument')
     suffix_arg_group.add_argument('-cat','--categories',type=str,nargs='+',choices=['bitmap','video'],help='Broader file categories (e.g. video or bitmap files) that define the final set of file suffixes. Mutually exclusive with -sfx argument')
-    
-    # add verbosity argument
-    parser.add_argument('-v','--verbose',action='store_true',help='Show progress information on finding and copying files when demetrius is run')
-    
+        
     # add exclude dirs argument
     parser.add_argument('-e','--exclude',type=str,nargs='+',help='One or multiple names of directories that should be ignored when searching for files. All of the specified directories and their children directories will be ignored')
+
+    # add verbosity argument
+    parser.add_argument('-v','--verbose',action='store_true',help='Show progress information on finding and copying files when demetrius is run')
 
     # parse arguments
     args = parser.parse_args()
