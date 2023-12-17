@@ -13,6 +13,7 @@ import shutil
 import pandas as pd
 import argparse
 from spinner import Spinner
+from halo import Halo
 
 # TO-DO: Allow user to decide to save information for all found files. This list 
 # should either be placed in the same directory as the destination directories or 
@@ -66,10 +67,7 @@ def _get_suffixes_tuple(which_suffixes='all'):
 # FIXME: Is there a better test to check if files are broken? Currently
 # only os.path.exists is implemented but I still get files image files
 # that can't be open using IrfanView
-# FIXME: Currently, there's lot's of repetition because of the verbose
-# argument. Maybe it would be better to work with a decorator in the run() function
-# like from the halo package here?
-def _find_files(src_dir,suffixes,exclude_dirs=None,verbose=False):
+def _find_files(src_dir,suffixes,exclude_dirs=None):
     '''Search for files in a source directory based on one or multiple
     file suffixes. This function will only append a found file to the list
     if it exists (using os.path.exists) wich serves as a minimal test for
@@ -86,9 +84,7 @@ def _find_files(src_dir,suffixes,exclude_dirs=None,verbose=False):
         Name of single directory of list of directory names that should be ignored when searching for files.
         All of the specified directories and their children directories will be
         ignored (Default: None)
-    verbose : bool
-        If true, print spinning cursor
-
+        
     Returns
     -------
     filepath_list : list
@@ -98,29 +94,18 @@ def _find_files(src_dir,suffixes,exclude_dirs=None,verbose=False):
     
     filepath_list = []
     
-    if verbose == True:
-        with Spinner('Searching for files '):
-            for (paths,dirs,files) in os.walk(src_dir):
-                
-                if exclude_dirs:
-                    dirs[:] = [d for d in dirs if d not in exclude_dirs]
-                    
-                for file in files:
-                    filepath = os.path.join(paths,file)
-                    if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
-                        filepath_list.append(filepath)
+    for (paths,dirs,files) in os.walk(src_dir):
+        
+        if exclude_dirs:
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        
+        # FIXME: Use guard clause style here
+        for file in files:
+            filepath = os.path.join(paths,file)
+            if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
+                filepath_list.append(filepath)
 
-    if verbose == False:
-        for (paths,dirs,files) in os.walk(src_dir):
-            
-            if exclude_dirs:
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-            
-            for file in files:
-                filepath = os.path.join(paths,file)
-                if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
-                    filepath_list.append(filepath)
-
+    # Why stdout and not stderr?
     if not filepath_list:
         sys.stdout.write('Did not find any files based on the given suffixes')
         sys.exit()
@@ -157,6 +142,7 @@ def _get_dst_dirs_df(filepath_list,dst_dir):
     # get only the name of the parent for each source file
     dst_dirs_df['src_dir_name'] = dst_dirs_df['src_dir_path'].map(os.path.basename)
     
+    # FIXME: Can use map here?
     # create destination path directory
     def create_dst_dir_path(row):
         return os.path.join(dst_dir,row['src_dir_name'])
@@ -258,11 +244,16 @@ def run(src_dir,dst_dir,which_suffixes='all',exclude_dirs=None,verbose=False):
     # get suffixes
     suffixes =  _get_suffixes_tuple(which_suffixes)
     
-    # find files
+    # if only a single directory was provided convert to list of single string
     if exclude_dirs and isinstance(exclude_dirs,str):
         exclude_dirs = list(exclude_dirs)
     
-    filepath_list = _find_files(src_dir,suffixes,exclude_dirs,verbose)
+    # search for files
+    if verbose == True:
+        with Halo(text='Searching for files', spinner='dots'):
+            filepath_list = _find_files(src_dir,suffixes,exclude_dirs)
+    else:
+        filepath_list = _find_files(src_dir,suffixes,exclude_dirs)
     
     # get data frame with destination directories
     dst_dirs_df = _get_dst_dirs_df(filepath_list,dst_dir)
