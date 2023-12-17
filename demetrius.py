@@ -12,8 +12,8 @@ import sys
 import shutil
 import pandas as pd
 import argparse
-from spinner import Spinner
 from halo import Halo
+from warnings import warn
 
 # TO-DO: Allow user to decide to save information for all found files. This list 
 # should either be placed in the same directory as the destination directories or 
@@ -99,16 +99,20 @@ def _find_files(src_dir,suffixes,exclude_dirs=None):
         if exclude_dirs:
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
         
-        # FIXME: Use guard clause style here
         for file in files:
+            
             filepath = os.path.join(paths,file)
-            if filepath.lower().endswith(suffixes) and os.path.exists(filepath):
-                filepath_list.append(filepath)
+            
+            if not filepath.lower().endswith(suffixes):
+                continue
+            
+            if not os.path.exists(filepath):
+                continue
+            
+            filepath_list.append(filepath)
 
-    # Why stdout and not stderr?
-    if not filepath_list:
-        sys.stdout.write('Did not find any files based on the given suffixes')
-        sys.exit()
+    if len(filepath_list) == 0:
+        sys.exit(f"No files that match the given criteria where found within {src_dir}")
         
     return filepath_list
 
