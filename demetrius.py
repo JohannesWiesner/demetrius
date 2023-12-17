@@ -13,14 +13,6 @@ import shutil
 import pandas as pd
 import argparse
 from halo import Halo
-from warnings import warn
-
-# TO-DO: Allow user to decide to save information for all found files. This list 
-# should either be placed in the same directory as the destination directories or 
-# separately in each of destination directory (showing only the source files for this
-# directory)
-# TO-DO: Let the user decide over the fashion of added indices (e.g. '_1' or ' (1)')
-# in _get_dst_dirs_df
 
 def _get_suffixes_tuple(which_suffixes='all'):
     '''Get a tuple of suffixes based on the attached .json file file or based
@@ -116,6 +108,36 @@ def _find_files(src_dir,suffixes,exclude_dirs=None):
         
     return filepath_list
 
+def _find_src_dir_duplicates(df):
+    '''Group dataframe by source directory names. If there are different source 
+    directory paths that share the same basename we have to differentiate between
+    them otherwise files from different directories with same name would be placed 
+    within the same folder 
+    '''
+    
+    for _, src_dir_df in df.groupby('src_dir_name'):
+        
+        # if there are more than just one source directory that share the same
+        # base name we have to adapt the destination path to put them in separate folders
+        if src_dir_df['src_dir_path'].nunique() != 1:
+            for idx, (_, src_dir_paths) in enumerate(src_dir_df.groupby('src_dir_path'),start=1):
+                df.loc[src_dir_paths.index,'dst_dir_path'] += f"_{idx}"
+                
+    return df
+
+def _find_pseudo_src_dir_duplicates(df):
+    '''Find pseudo duplicate destination directories (e.g. holiday_1 & Holiday_1)
+    because it's not possible on Windows to create those in the same folder'''
+    
+    df['dst_dir_path_lower_case'] = df['dst_dir_path'].map(str.lower)
+        
+    for _,dst_dir_df in df.groupby('dst_dir_path_lower_case'):
+        if dst_dir_df['src_dir_path'].nunique() != 1:
+            for idx,(_,src_dir_names) in enumerate(dst_dir_df.groupby('src_dir_name'),start=1):
+                df.loc[src_dir_names.index,'dst_dir_path'] += f" ({idx})"
+    
+    return df
+
 def _get_dst_dirs_df(filepath_list,dst_dir):
     '''Create a pandas.DataFrame holding the source filepaths as one column and
     corresponding destination directories as another column. In case there are 
@@ -146,27 +168,15 @@ def _get_dst_dirs_df(filepath_list,dst_dir):
     # get only the name of the parent for each source file
     dst_dirs_df['src_dir_name'] = dst_dirs_df['src_dir_path'].map(os.path.basename)
     
-    # FIXME: Can use map here?
-    # create destination path directory
-    def create_dst_dir_path(row):
-        return os.path.join(dst_dir,row['src_dir_name'])
-    
-    dst_dirs_df['dst_dir_path'] = dst_dirs_df.apply(create_dst_dir_path,axis=1)
+    # set path to the destination directory    
+    dst_dirs_df['dst_dir_path'] = dst_dirs_df['src_dir_name'].map(lambda x: os.path.join(dst_dir, x))
     
     # find literal duplicates and modify the respective destination directories
-    for _,dir_name in dst_dirs_df.groupby('src_dir_name'):
-        if not dir_name['src_dir_path'].nunique() == 1:
-            for idx,(_,src_dir_path) in enumerate(dir_name.groupby('src_dir_path'),start=1):
-                dst_dirs_df.loc[src_dir_path.index,'dst_dir_path'] =  dst_dirs_df.loc[src_dir_path.index,'dst_dir_path'] + '_' + str(idx)
+    dst_dirs_df = _find_src_dir_duplicates(dst_dirs_df)
     
     # find pseudo duplicates and modify the respective destination directories
-    dst_dirs_df['dst_dir_path_lower_case'] = dst_dirs_df['dst_dir_path'].map(str.lower)
-        
-    for _,dst_dir_path in dst_dirs_df.groupby('dst_dir_path_lower_case'):
-        if dst_dir_path['src_dir_path'].nunique() != 1:
-            for idx,(_,dir_name) in enumerate(dst_dir_path.groupby('src_dir_name'),start=1):
-                dst_dirs_df.loc[dir_name.index,'dst_dir_path'] = dst_dirs_df.loc[dir_name.index,'dst_dir_path'] + ' (' + str(idx) + ')'
-    
+    dst_dirs_df = _find_pseudo_src_dir_duplicates(dst_dirs_df)
+
     return dst_dirs_df
 
 def _copy_files(dst_dirs_df,verbose=False):
