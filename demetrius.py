@@ -3,7 +3,7 @@
 Demetrius: Find and copy files and their parent directories from a source 
 directory to a destination directory .
 
-@author: johwi
+@author: Johannes Wiesner
 """
 
 import json
@@ -56,9 +56,6 @@ def _get_suffixes_tuple(which_suffixes='all'):
 
     return suffixes
 
-# FIXME: Is there a better test to check if files are broken? Currently
-# only os.path.exists is implemented but I still get files image files
-# that can't be open using IrfanView
 def _find_files(src_dir,suffixes,exclude_dirs=None):
     '''Search for files in a source directory based on one or multiple
     file suffixes. This function will only append a found file to the list
@@ -88,10 +85,11 @@ def _find_files(src_dir,suffixes,exclude_dirs=None):
     
     for (paths,dirs,files) in os.walk(src_dir):
         
-        # ignore hidden files and hidden directories
+        # always ignore hidden files and hidden directories
         files = [f for f in files if not f[0] == '.']
         dirs[:] = [d for d in dirs if not d[0] == '.']
         
+        # if wanted, exclude directories from search
         if exclude_dirs:
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
         
@@ -102,15 +100,22 @@ def _find_files(src_dir,suffixes,exclude_dirs=None):
             if not filepath.lower().endswith(suffixes):
                 continue
             
-            if not os.path.exists(filepath):
-                continue
-            
             filepath_list.append(filepath)
 
     if len(filepath_list) == 0:
         sys.exit(f"No files that match the given criteria where found within {src_dir}")
         
     return filepath_list
+
+# FIXME: Is there a better test to check if files are broken? Currently
+# only os.path.exists is implemented but I still get files image files
+# that can't be open using IrfanView
+def _check_files(filepath_list):
+    '''Rough checks if files are corrupt'''
+    
+    for filepath in filepath_list:
+        if not os.path.exists(filepath):
+            filepath_list.remove(filepath)
 
 def _find_src_dir_duplicates(df):
     '''Group dataframe by source directory names. If there are different source 
@@ -144,9 +149,7 @@ def _find_pseudo_src_dir_duplicates(df):
 
 def _get_dst_dirs_df(filepath_list,dst_dir):
     '''Create a pandas.DataFrame holding the source filepaths as one column and
-    corresponding destination directories as another column. In case there are 
-    multiple source  directories with the same name, the function will add indices to the 
-    destination directories to maintain unique folder names. 
+    corresponding destination directories as another column.
     
     Parameters
     ----------
@@ -175,12 +178,6 @@ def _get_dst_dirs_df(filepath_list,dst_dir):
     # set path to the destination directory    
     dst_dirs_df['dst_dir_path'] = dst_dirs_df['src_dir_name'].map(lambda x: os.path.join(dst_dir, x))
     
-    # find literal duplicates and modify the respective destination directories
-    dst_dirs_df = _find_src_dir_duplicates(dst_dirs_df)
-    
-    # find pseudo duplicates and modify the respective destination directories
-    dst_dirs_df = _find_pseudo_src_dir_duplicates(dst_dirs_df)
-
     return dst_dirs_df
 
 def _copy_files(dst_dirs_df,verbose=False):
@@ -270,12 +267,21 @@ def run(src_dir,dst_dir,which_suffixes='all',exclude_dirs=None,verbose=False):
     if verbose == True:
         with Halo(text='Searching for files', spinner='dots'):
             filepath_list = _find_files(src_dir,suffixes,exclude_dirs)
+        with Halo(text='Checking files', spinner='dots'):
+            _check_files(filepath_list)
     else:
         filepath_list = _find_files(src_dir,suffixes,exclude_dirs)
-    
+        _check_files(filepath_list)
+        
     # get data frame with destination directories
     dst_dirs_df = _get_dst_dirs_df(filepath_list,dst_dir)
     
+    # find literal duplicates and modify the respective destination directories
+    dst_dirs_df = _find_src_dir_duplicates(dst_dirs_df)
+    
+    # find pseudo duplicates and modify the respective destination directories
+    dst_dirs_df = _find_pseudo_src_dir_duplicates(dst_dirs_df)
+
     # copy files
     _copy_files(dst_dirs_df,verbose)
 
