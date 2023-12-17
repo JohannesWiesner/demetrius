@@ -99,7 +99,7 @@ def _find_files(src_dir,suffixes,exclude_dirs=None):
             
             if not filepath.lower().endswith(suffixes):
                 continue
-            
+                        
             filepath_list.append(filepath)
 
     if len(filepath_list) == 0:
@@ -107,15 +107,13 @@ def _find_files(src_dir,suffixes,exclude_dirs=None):
         
     return filepath_list
 
-# FIXME: Is there a better test to check if files are broken? Currently
-# only os.path.exists is implemented but I still get files image files
-# that can't be open using IrfanView
 def _check_files(filepath_list):
     '''Rough checks if files are corrupt'''
     
-    for filepath in filepath_list:
-        if not os.path.exists(filepath):
-            filepath_list.remove(filepath)
+    filepath_list = [file for file in filepath_list if os.path.exists(file)]
+    filepath_list = [file for file in filepath_list if os.path.getsize(file) > 0]
+    
+    return filepath_list
 
 def _find_src_dir_duplicates(df):
     '''Group dataframe by source directory names. If there are different source 
@@ -268,10 +266,10 @@ def run(src_dir,dst_dir,which_suffixes='all',exclude_dirs=None,verbose=False):
         with Halo(text='Searching for files', spinner='dots'):
             filepath_list = _find_files(src_dir,suffixes,exclude_dirs)
         with Halo(text='Checking files', spinner='dots'):
-            _check_files(filepath_list)
+            filepath_list = _check_files(filepath_list)
     else:
         filepath_list = _find_files(src_dir,suffixes,exclude_dirs)
-        _check_files(filepath_list)
+        filepath_list = _check_files(filepath_list)
         
     # get data frame with destination directories
     dst_dirs_df = _get_dst_dirs_df(filepath_list,dst_dir)
