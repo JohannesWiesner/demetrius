@@ -283,7 +283,7 @@ def run(src_dir,dst_dir,which_suffixes='all',exclude_dirs=None,verbose=False):
     # copy files
     _copy_files(dst_dirs_df,verbose)
     
-    sys.stdout.write('Finding and copying files with demetrius finished!')
+    print('Finding and copying files with demetrius finished!', flush=True)
 
 if __name__ == '__main__':
     
